@@ -20,6 +20,11 @@
     .panel{display:none}.panel.active{display:block}
     .card{padding:20px;background:#fff;border:1px solid #e1e7ed;border-radius:14px}
     .card h2{margin:0 0 8px;font-size:17px}.muted{margin:0;color:#7b8992;font-size:14px;line-height:1.55}
+    .telemetry-grid{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:12px;margin-top:18px}
+    .telemetry-item{padding:16px;border:1px solid #e1e7ed;border-radius:10px;background:#f7f9fc}
+    .telemetry-item span{display:block;color:#7b8992;font-size:13px;margin-bottom:8px}
+    .telemetry-item strong{font-size:24px;color:#263746;font-variant-numeric:tabular-nums}
+    @media(max-width:700px){.telemetry-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
     .field{margin:17px 0}label{display:block;margin-bottom:8px;color:#65737e;font-size:14px}
     input{width:100%;height:48px;padding:0 13px;border:1px solid #dce3eb;border-radius:8px;background:#f2f4f8;color:#263746;font-size:15px;outline:none}
     input[type="file"]{height:auto;min-height:48px;padding:10px 12px}
@@ -73,6 +78,18 @@
           <p id="rtc-time" style="margin:10px 0 4px;font-size:32px;font-weight:700">--:--:--</p>
           <p id="rtc-date" class="muted">--/--/----</p>
         </div>
+        <div class="card" style="margin-top:16px">
+          <h2>Dữ liệu demo</h2>
+          <p class="muted">Bốn giá trị giả lập, được ESP32 tự cập nhật và gửi lên ThingsBoard mỗi 10s</p>
+          <div class="telemetry-grid" aria-live="polite">
+            <div class="telemetry-item"><span>var1</span><strong id="demo-var1">--.--</strong></div>
+            <div class="telemetry-item"><span>var2</span><strong id="demo-var2">--.--</strong></div>
+            <div class="telemetry-item"><span>var3</span><strong id="demo-var3">--.--</strong></div>
+            <div class="telemetry-item"><span>var4</span><strong id="demo-var4">--.--</strong></div>
+          </div>
+          <p id="demo-status" class="muted" role="status" style="margin-top:16px">Đang chờ dữ liệu...</p>
+          <p class="muted" style="margin-top:4px">Gửi thành công lần cuối: <span id="demo-last-sent">Chưa gửi</span></p>
+        </div>
       </section>
 
       <section class="panel" id="panel-admin">
@@ -81,7 +98,7 @@
           <p class="muted">Chọn file firmware.bin, để cập nhật firmware.</p>
           <form action="/ota/update" method="post" enctype="multipart/form-data">
             <div class="field">
-              <label for="firmware">File firmware.bin</label>
+              <!-- <label for="firmware">File firmware.bin</label> -->
               <input id="firmware" name="firmware" type="file" accept="firmware.bin,.bin,application/octet-stream" required>
             </div>
             <button class="submit" type="submit">Tải lên &amp; cập nhật</button>
@@ -122,6 +139,25 @@
     }
     setInterval(updateRtcTime, 1000);
     updateRtcTime();
+    const demoStatus = document.getElementById('demo-status');
+    const demoLastSent = document.getElementById('demo-last-sent');
+    async function updateDemoTelemetry() {
+      if (!document.getElementById('panel-advanced').classList.contains('active')) return;
+      try {
+        const response = await fetch('/api/demo', {cache: 'no-store'});
+        const result = await response.json();
+        if (!response.ok || !result.available) throw new Error(result.message || 'Không đọc được dữ liệu demo.');
+        ['var1', 'var2', 'var3', 'var4'].forEach((key) => {
+          document.getElementById(`demo-${key}`).textContent = Number(result[key]).toFixed(2);
+        });
+        demoStatus.textContent = result.status;
+        demoLastSent.textContent = result.lastSent;
+      } catch (error) {
+        demoStatus.textContent = error.message;
+      }
+    }
+    setInterval(updateDemoTelemetry, 1000);
+    updateDemoTelemetry();
   </script>
 </body>
 </html>

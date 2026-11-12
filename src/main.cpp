@@ -4,6 +4,7 @@
 
 #include "services/ota.h"
 #include "services/rtc.h"
+#include "services/things_board.h"
 #include "services/user.h"
 #include "services/wifi.h"
 
@@ -119,6 +120,7 @@ void setup()
 
     WifiConfig::connectSavedNetwork();
     RtcManager::begin();
+    ThingsBoard::begin();
 
     server.on("/", HTTP_GET, handleHome);
     server.on("/login", HTTP_POST, handleLogin);
@@ -127,16 +129,18 @@ void setup()
     server.on("/logout", HTTP_GET, handleLogout);
     OtaManager::registerRoutes(server, isUserAuthenticated);
     RtcManager::registerRoutes(server, isUserAuthenticated);
+    ThingsBoard::registerRoutes(server, isUserAuthenticated);
     server.serveStatic("/images", LittleFS, "/images");
     server.onNotFound([]() {
-        server.send(404, "text/plain; charset=utf-8", "Khong tim thay trang.");
+        server.send(404, "text/plain; charset=utf-8", "Unfound this page!.");
     });
     server.begin();
-    Serial.println("Web server da bat dau tren cong 80.");
+    Serial.println("Webserver is activated on port 80.");
 }
 
 void loop()
 {
+    // Reset trên serial monitor
     if (Serial.available() > 0)
     {
         const char command = static_cast<char>(Serial.read());
@@ -147,4 +151,5 @@ void loop()
     }
 
     server.handleClient();
+    ThingsBoard::loop();
 }
