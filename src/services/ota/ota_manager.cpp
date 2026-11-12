@@ -1,6 +1,5 @@
 #include "services/ota/ota_manager.h"
 
-#include <LittleFS.h>
 #include <Update.h>
 
 namespace OtaManager {
@@ -11,8 +10,6 @@ bool updateStarted = false;
 bool updateFailed = false;
 bool updateFinished = false;
 bool uploadRejected = false;
-bool filesystemUnmounted = false;
-int activeUpdateCommand = U_FLASH;
 String updateError;
 
 bool isAuthorized()
@@ -20,7 +17,7 @@ bool isAuthorized()
     return authenticationCheck != nullptr && authenticationCheck();
 }
 
-void handleUploadStream(int updateCommand)
+void handleFirmwareUpload()
 {
     if (!isAuthorized())
     {
@@ -37,7 +34,6 @@ void handleUploadStream(int updateCommand)
         updateFailed = false;
         updateFinished = false;
         uploadRejected = false;
-        activeUpdateCommand = updateCommand;
         updateError = "";
 
         String filename = upload.filename;
@@ -45,30 +41,18 @@ void handleUploadStream(int updateCommand)
         if (!filename.endsWith(".bin"))
         {
             updateFailed = true;
-            updateError = "Chi chap nhan file co duoi .bin.";
-            return;
-        }
-        if (activeUpdateCommand == U_FLASHFS && !filename.endsWith("littlefs.bin"))
-        {
-            updateFailed = true;
-            updateError = "Hay chon file littlefs.bin duoc tao tu PlatformIO.";
+            updateError = "Chi chap nhan file firmware .bin.";
             return;
         }
 
-        if (activeUpdateCommand == U_FLASHFS)
-        {
-            LittleFS.end();
-            filesystemUnmounted = true;
-        }
-
-        if (!Update.begin(UPDATE_SIZE_UNKNOWN, activeUpdateCommand))
+        if (!Update.begin(UPDATE_SIZE_UNKNOWN, U_FLASH))
         {
             updateFailed = true;
             updateError = Update.errorString();
             return;
         }
         updateStarted = true;
-        Serial.printf("OTA: bat dau nap %s\n", upload.filename.c_str());
+        Serial.printf("OTA firmware: bat dau nap %s\n", upload.filename.c_str());
         break;
     }
 
@@ -91,7 +75,7 @@ void handleUploadStream(int updateCommand)
             if (Update.end(true))
             {
                 updateFinished = true;
-                Serial.printf("OTA: da ghi %u byte\n", static_cast<unsigned>(upload.totalSize));
+                Serial.printf("OTA firmware: da ghi %u byte\n", static_cast<unsigned>(upload.totalSize));
             }
             else
             {
@@ -108,7 +92,7 @@ void handleUploadStream(int updateCommand)
         }
         updateStarted = false;
         updateFailed = true;
-        updateError = "Qua trinh upload bi huy.";
+        updateError = "Qua trinh upload firmware bi huy.";
         break;
 
     default:
@@ -116,15 +100,10 @@ void handleUploadStream(int updateCommand)
     }
 }
 
-void finishUpload(int updateCommand)
+void handleFirmwareResult()
 {
     if (!isAuthorized() || uploadRejected)
     {
-        if (filesystemUnmounted)
-        {
-            LittleFS.begin(false);
-            filesystemUnmounted = false;
-        }
         otaServer->send(401, "text/plain; charset=utf-8", "Vui long dang nhap de cap nhat firmware.");
         return;
     }
@@ -137,42 +116,15 @@ void finishUpload(int updateCommand)
             message += " ";
             message += updateError;
         }
-        if (filesystemUnmounted)
-        {
-            LittleFS.begin(false);
-            filesystemUnmounted = false;
-        }
         otaServer->send(400, "text/plain; charset=utf-8", message);
         return;
     }
 
-    const char* successMessage = updateCommand == U_FLASHFS
-                                     ? "Filesystem da cap nhat. ESP32 dang khoi dong lai."
-                                     : "Firmware da cap nhat. ESP32 dang khoi dong lai.";
-    otaServer->send(200, "text/plain; charset=utf-8", successMessage);
-    Serial.println(successMessage);
+    otaServer->send(200, "text/plain; charset=utf-8",
+                    "Firmware da cap nhat. ESP32 dang khoi dong lai.");
+    Serial.println("OTA firmware: cap nhat thanh cong, khoi dong lai sau 1 giay.");
     delay(1000);
     ESP.restart();
-}
-
-void handleFirmwareStream()
-{
-    handleUploadStream(U_FLASH);
-}
-
-void handleFilesystemStream()
-{
-    handleUploadStream(U_FLASHFS);
-}
-
-void handleFirmwareResult()
-{
-    finishUpload(U_FLASH);
-}
-
-void handleFilesystemResult()
-{
-    finishUpload(U_FLASHFS);
 }
 } // namespace
 
@@ -180,8 +132,7 @@ void registerRoutes(WebServer& server, AuthenticationCheck isAuthenticated)
 {
     otaServer = &server;
     authenticationCheck = isAuthenticated;
-    server.on("/ota/update", HTTP_POST, handleFirmwareResult, handleFirmwareStream);
-    server.on("/ota/filesystem", HTTP_POST, handleFilesystemResult, handleFilesystemStream);
+    server.on("/ota/update", HTTP_POST, handleFirmwareResult, handleFirmwareUpload);
 }
 
 } // namespace OtaManager

@@ -85,13 +85,13 @@
         </div>
         <div class="card" style="margin-top:16px">
           <h2>Cập nhật giao diện</h2>
-          <p class="muted">Chọn file littlefs.bin để cập nhật các trang HTML. ESP32 sẽ khởi động lại sau khi nạp xong.</p>
-          <form action="/ota/filesystem" method="post" enctype="multipart/form-data">
+          <p class="muted">Chọn trực tiếp login.html hoặc dashboard.html. Chỉ trang được chọn sẽ được thay thế; ESP32 không cần khởi động lại.</p>
+          <form action="/pages/upload" method="post" enctype="multipart/form-data">
             <div class="field">
-              <label for="filesystem-image">File littlefs.bin</label>
-              <input id="filesystem-image" name="filesystem" type="file" accept="littlefs.bin,.bin,application/octet-stream" required>
+              <label for="html-page">File HTML</label>
+              <input id="html-page" name="page" type="file" accept=".html,text/html" required>
             </div>
-            <button class="submit" type="submit">Tải lên giao diện</button>
+            <button class="submit" type="submit">Tải lên HTML</button>
           </form>
         </div>
       </section>

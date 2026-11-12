@@ -3,6 +3,7 @@
 #include <WebServer.h>
 
 #include "services/ota/ota_manager.h"
+#include "services/page_manager/page_manager.h"
 #include "services/user/user_manager.h"
 #include "services/wifi/wifi_config.h"
 
@@ -124,6 +125,8 @@ void setup()
     server.on("/wifi", HTTP_POST, wifi_config);
     server.on("/logout", HTTP_GET, handleLogout);
     OtaManager::registerRoutes(server, isUserAuthenticated);
+    PageManager::registerRoutes(server, isUserAuthenticated);
+    server.serveStatic("/images", LittleFS, "/images");
     server.onNotFound([]() {
         server.send(404, "text/plain; charset=utf-8", "Khong tim thay trang.");
     });
