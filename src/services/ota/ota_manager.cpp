@@ -1,4 +1,4 @@
-#include "services/ota_manager/ota_manager.h"
+#include "services/ota/ota_manager.h"
 
 #include <LittleFS.h>
 #include <Update.h>

@@ -2,9 +2,9 @@
 #include <LittleFS.h>
 #include <WebServer.h>
 
-#include "services/ota_manager/ota_manager.h"
-#include "services/user_manager/user_manager.h"
-#include "services/wifi_config/wifi_config.h"
+#include "services/ota/ota_manager.h"
+#include "services/user/user_manager.h"
+#include "services/wifi/wifi_config.h"
 
 namespace {
 WebServer server(80);
