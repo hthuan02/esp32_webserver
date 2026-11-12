@@ -2,12 +2,10 @@
 #include <LittleFS.h>
 #include <WebServer.h>
 
+#include "services/user_manager/user_manager.h"
 #include "services/wifi_config/wifi_config.h"
 
 namespace {
-constexpr char kLoginUsername[] = "esp32";
-constexpr char kLoginPassword[] = "1234";
-
 WebServer server(80);
 bool isAuthenticated = false;
 
@@ -51,7 +49,7 @@ void dashboard()
 
 void handleLogin()
 {
-    if (server.arg("username") == kLoginUsername && server.arg("password") == kLoginPassword)
+    if (UserManager::authenticate(server.arg("username"), server.arg("password")))
     {
         isAuthenticated = true;
         server.sendHeader("Location", "/dashboard");
