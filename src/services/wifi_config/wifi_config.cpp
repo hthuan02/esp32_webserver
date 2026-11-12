@@ -1,4 +1,4 @@
-#include "wifi_config/wifi_config.h"
+#include "services/wifi_config/wifi_config.h"
 
 #include <Preferences.h>
 #include <WiFi.h>

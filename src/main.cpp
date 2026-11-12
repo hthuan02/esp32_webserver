@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include <WebServer.h>
 
-#include "wifi_config/wifi_config.h"
+#include "services/wifi_config/wifi_config.h"
 
 namespace {
 constexpr char kLoginUsername[] = "esp32";
