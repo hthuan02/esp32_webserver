@@ -2,12 +2,18 @@
 #include <LittleFS.h>
 #include <WebServer.h>
 
+#include "services/ota_manager/ota_manager.h"
 #include "services/user_manager/user_manager.h"
 #include "services/wifi_config/wifi_config.h"
 
 namespace {
 WebServer server(80);
 bool isAuthenticated = false;
+
+bool isUserAuthenticated()
+{
+    return isAuthenticated;
+}
 
 void servePage(const char* path)
 {
@@ -117,6 +123,7 @@ void setup()
     server.on("/dashboard", HTTP_GET, dashboard);
     server.on("/wifi", HTTP_POST, wifi_config);
     server.on("/logout", HTTP_GET, handleLogout);
+    OtaManager::registerRoutes(server, isUserAuthenticated);
     server.onNotFound([]() {
         server.send(404, "text/plain; charset=utf-8", "Khong tim thay trang.");
     });

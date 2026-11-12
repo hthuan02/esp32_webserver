@@ -3,47 +3,111 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f0f3f9">
   <title>MEI CONNECT | Quản trị</title>
   <style>
     *{box-sizing:border-box}
     body{margin:0;min-height:100vh;background:#f0f3f9;color:#263746;font-family:Arial,Helvetica,sans-serif}
-    header{height:76px;padding:0 28px;display:flex;align-items:center;justify-content:space-between;background:#fff;border-bottom:1px solid #e2e7ed}
-    .brand{font-size:25px}.brand strong{color:#168f91}.menu{position:relative}
-    .menu-button,.submit{border:0;border-radius:9px;background:#108f91;color:#fff;padding:12px 18px;font-size:15px;cursor:pointer}
-    .menu-list{display:none;position:absolute;right:0;top:48px;z-index:2;min-width:190px;padding:8px;background:#fff;border:1px solid #e1e5eb;border-radius:10px;box-shadow:0 8px 24px #1d355720}
-    .menu-list.open{display:block}.menu-list a{display:block;padding:11px 12px;border-radius:7px;color:#263746;text-decoration:none}.menu-list a:hover{background:#eef4f6}
-    main{width:min(760px,100%);margin:48px auto;padding:0 18px}
-    .card{margin-bottom:22px;padding:26px;background:#fff;border:1px solid #e1e5eb;border-radius:16px;box-shadow:0 8px 28px #1d35570a}
-    h1{margin:0 0 12px;font-size:27px}h2{margin:0 0 10px;font-size:21px}.muted{color:#74818b;line-height:1.6}
-    .field{margin:18px 0}label{display:block;margin-bottom:8px;color:#65737e}
-    input{width:100%;height:50px;padding:0 14px;border:1px solid #dce3eb;border-radius:9px;background:#f5f7fb;font-size:16px}
-    .submit{margin-top:5px}
-    @media(max-width:560px){header{padding:0 16px}.brand{font-size:21px}main{margin:28px auto}.card{padding:21px}}
+    .layout{min-height:100vh;display:grid;grid-template-columns:190px minmax(0,1fr)}
+    .sidebar{padding:20px 10px;background:#fff;border-right:1px solid #e3e8ee}
+    .brand{padding:7px 12px 24px;font-size:21px;letter-spacing:-.4px;white-space:nowrap}.brand strong{color:#168f91}
+    .nav{display:grid;gap:5px}
+    .nav button{width:100%;padding:10px 13px;border:0;border-radius:8px;background:transparent;color:#74818b;text-align:left;font-size:14px;cursor:pointer}
+    .nav button:hover{background:#f3f6f8;color:#263746}
+    .nav button.active{background:#e4f2f2;color:#138c8e;font-weight:700}
+    .main{min-width:0;padding:25px}
+    .page-heading{margin:0 0 4px;font-size:24px}.page-subtitle{margin:0 0 18px;color:#7b8992;font-size:14px}
+    .panel{display:none}.panel.active{display:block}
+    .card{padding:20px;background:#fff;border:1px solid #e1e7ed;border-radius:14px}
+    .card h2{margin:0 0 8px;font-size:17px}.muted{margin:0;color:#7b8992;font-size:14px;line-height:1.55}
+    .field{margin:17px 0}label{display:block;margin-bottom:8px;color:#65737e;font-size:14px}
+    input{width:100%;height:48px;padding:0 13px;border:1px solid #dce3eb;border-radius:8px;background:#f2f4f8;color:#263746;font-size:15px;outline:none}
+    input[type="file"]{height:auto;min-height:48px;padding:10px 12px}
+    input:focus{border-color:#168f91;box-shadow:0 0 0 3px #168f9120}
+    .submit{min-height:42px;margin-top:2px;padding:0 16px;border:0;border-radius:8px;background:#108f91;color:#fff;font-size:14px;cursor:pointer}
+    .submit:hover{background:#087c7e}
+    @media(max-width:700px){.layout{grid-template-columns:1fr;grid-template-rows:auto 1fr}.sidebar{padding:10px 12px;border-right:0;border-bottom:1px solid #e3e8ee}.brand{padding:4px 5px 10px}.nav{display:flex;overflow-x:auto}.nav button{width:auto;white-space:nowrap}.main{padding:20px 14px}}
   </style>
 </head>
 <body>
-  <header>
-    <div class="brand"><strong>MEI</strong> CONNECT</div>
-    <div class="menu">
-      <button class="menu-button" type="button" onclick="document.getElementById('menu-list').classList.toggle('open')">☰ Menu</button>
-      <nav class="menu-list" id="menu-list">
-        <a href="/dashboard">Tổng quan</a>
-        <a href="#wifi-settings" onclick="document.getElementById('menu-list').classList.remove('open')">Chuyển đổi Wi-Fi</a>
-        <a href="/logout">Đăng xuất</a>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand"><strong>MEI</strong> CONNECT</div>
+      <nav class="nav" aria-label="Điều hướng">
+        <button type="button" class="active" data-view="overview">Tổng quan</button>
+        <button type="button" data-view="connection">Kết nối</button>
+        <button type="button" data-view="advanced">Cấu hình mở rộng</button>
+        <button type="button" data-view="admin">Quản trị</button>
+        <button type="button" onclick="location.href='/logout'">Đăng xuất</button>
       </nav>
-    </div>
-  </header>
-  <main>
-    <section class="card"><h1>Quản trị thiết bị</h1><p class="muted">Đăng nhập thành công. Chọn Menu ở phía trên để mở phần cấu hình Wi-Fi.</p></section>
-    <section class="card" id="wifi-settings">
-      <h2>Chuyển đổi Wi-Fi</h2>
-      <p class="muted">Nhập tên và mật khẩu mạng Wi-Fi mới. Sau khi kết nối, địa chỉ IP mới sẽ được in trên Serial Monitor.</p>
-      <form action="/wifi" method="post" autocomplete="off">
-        <div class="field"><label for="ssid">Tên Wi-Fi (SSID)</label><input id="ssid" name="ssid" type="text" placeholder="Nhập tên Wi-Fi" required></div>
-        <div class="field"><label for="wifi-password">Mật khẩu Wi-Fi</label><input id="wifi-password" name="password" type="password" placeholder="Nhập mật khẩu Wi-Fi"></div>
-        <button class="submit" type="submit">Kết nối Wi-Fi mới</button>
-      </form>
-    </section>
-  </main>
+    </aside>
+
+    <main class="main">
+      <section class="panel active" id="panel-overview">
+        <h1 class="page-heading">Tổng quan</h1>
+        <p class="page-subtitle">Trạng thái quản trị thiết bị MEI CONNECT.</p>
+        <div class="card"><h2>Thiết bị</h2><p class="muted">Chọn mục <strong>Kết nối</strong> ở thanh bên để cấu hình mạng Wi-Fi.</p></div>
+      </section>
+
+      <section class="panel" id="panel-connection">
+        <h1 class="page-heading">Kết nối</h1>
+        <p class="page-subtitle">Cấu hình Wi-Fi cho thiết bị.</p>
+        <div class="card">
+          <h2>Kết nối Wi-Fi</h2>
+          <p class="muted">Nhập tên và mật khẩu mạng Wi-Fi. Khi kết nối thành công, địa chỉ IP của ESP32 sẽ được in trên Serial Monitor.</p>
+          <form action="/wifi" method="post" autocomplete="off">
+            <div class="field"><label for="ssid">Tên Wi-Fi (SSID)</label><input id="ssid" name="ssid" type="text" placeholder="Nhập tên Wi-Fi" required></div>
+            <div class="field"><label for="wifi-password">Mật khẩu Wi-Fi</label><input id="wifi-password" name="password" type="password" placeholder="Nhập mật khẩu Wi-Fi"></div>
+            <button class="submit" type="submit">Kết nối Wi-Fi mới</button>
+          </form>
+        </div>
+      </section>
+
+      <section class="panel" id="panel-advanced">
+        <h1 class="page-heading">Cấu hình mở rộng</h1>
+        <p class="page-subtitle">Các tùy chọn nâng cao cho thiết bị.</p>
+        <div class="card"><p class="muted">Chức năng này chưa được cấu hình.</p></div>
+      </section>
+
+      <section class="panel" id="panel-admin">
+        <h1 class="page-heading">Quản trị</h1>
+        <p class="page-subtitle">Cập nhật firmware cho thiết bị.</p>
+        <div class="card">
+          <h2>Cập nhật</h2>
+          <p class="muted">Chọn file firmware.bin. Thiết bị sẽ tự khởi động lại sau khi cập nhật thành công.</p>
+          <form action="/ota/update" method="post" enctype="multipart/form-data">
+            <div class="field">
+              <label for="firmware">File firmware.bin</label>
+              <input id="firmware" name="firmware" type="file" accept="firmware.bin,.bin,application/octet-stream" required>
+            </div>
+            <button class="submit" type="submit">Tải lên &amp; cập nhật</button>
+          </form>
+        </div>
+        <div class="card" style="margin-top:16px">
+          <h2>Cập nhật giao diện</h2>
+          <p class="muted">Chọn file littlefs.bin để cập nhật các trang HTML. ESP32 sẽ khởi động lại sau khi nạp xong.</p>
+          <form action="/ota/filesystem" method="post" enctype="multipart/form-data">
+            <div class="field">
+              <label for="filesystem-image">File littlefs.bin</label>
+              <input id="filesystem-image" name="filesystem" type="file" accept="littlefs.bin,.bin,application/octet-stream" required>
+            </div>
+            <button class="submit" type="submit">Tải lên giao diện</button>
+          </form>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const navButtons = document.querySelectorAll('[data-view]');
+    const panels = document.querySelectorAll('.panel');
+    navButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const view = button.dataset.view;
+        navButtons.forEach((item) => item.classList.toggle('active', item === button));
+        panels.forEach((panel) => panel.classList.toggle('active', panel.id === `panel-${view}`));
+      });
+    });
+  </script>
 </body>
 </html>
