@@ -2,10 +2,11 @@
 
 #include <WebServer.h>
 
-namespace PageManager {
+namespace RtcManager {
 
 using AuthenticationCheck = bool (*)();
 
+void begin();
 void registerRoutes(WebServer& server, AuthenticationCheck isAuthenticated);
 
-} // namespace PageManager
+} // namespace RtcManager

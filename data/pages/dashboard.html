@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#f0f3f9">
-  <title>MEI CONNECT | Quản trị</title>
+  <title>ESP32 WEBSERVER</title>
   <style>
     *{box-sizing:border-box}
     body{margin:0;min-height:100vh;background:#f0f3f9;color:#263746;font-family:Arial,Helvetica,sans-serif}
@@ -36,7 +36,7 @@
       <nav class="nav" aria-label="Điều hướng">
         <button type="button" class="active" data-view="overview">Tổng quan</button>
         <button type="button" data-view="connection">Kết nối</button>
-        <button type="button" data-view="advanced">Cấu hình mở rộng</button>
+        <button type="button" data-view="advanced">Chế độ hoạt động</button>
         <button type="button" data-view="admin">Quản trị</button>
         <button type="button" onclick="location.href='/logout'">Đăng xuất</button>
       </nav>
@@ -66,14 +66,18 @@
       <section class="panel" id="panel-advanced">
         <h1 class="page-heading">Cấu hình mở rộng</h1>
         <p class="page-subtitle">Các tùy chọn nâng cao cho thiết bị.</p>
-        <div class="card"><p class="muted">Chức năng này chưa được cấu hình.</p></div>
+        <div class="card">
+          <h2>Đồng hồ thời gian thực</h2>
+          <!-- <p class="muted">Thời gian từ đồng hồ nội ESP32, đồng bộ qua Wi-Fi/NTP.</p> -->
+          <p id="rtc-status" class="muted" role="status" style="margin-top:12px">Đang kiểm tra RTC nội...</p>
+          <p id="rtc-time" style="margin:10px 0 4px;font-size:32px;font-weight:700">--:--:--</p>
+          <p id="rtc-date" class="muted">--/--/----</p>
+        </div>
       </section>
 
       <section class="panel" id="panel-admin">
-        <h1 class="page-heading">Cập nhật</h1>
-        <p class="page-subtitle">Cập nhật firmware cho ESP32 (Madin Board).</p>
         <div class="card">
-          <h2>Cập nhật</h2>
+          <h2>Cập nhật firmware cho ESP32</h2>
           <p class="muted">Chọn file firmware.bin, để cập nhật firmware.</p>
           <form action="/ota/update" method="post" enctype="multipart/form-data">
             <div class="field">
@@ -81,17 +85,6 @@
               <input id="firmware" name="firmware" type="file" accept="firmware.bin,.bin,application/octet-stream" required>
             </div>
             <button class="submit" type="submit">Tải lên &amp; cập nhật</button>
-          </form>
-        </div>
-        <div class="card" style="margin-top:16px">
-          <h2>Cập nhật giao diện</h2>
-          <p class="muted">Chọn trực tiếp login.html hoặc dashboard.html. Chỉ trang được chọn sẽ được thay thế; ESP32 không cần khởi động lại.</p>
-          <form action="/pages/upload" method="post" enctype="multipart/form-data">
-            <div class="field">
-              <label for="html-page">File HTML</label>
-              <input id="html-page" name="page" type="file" accept=".html,text/html" required>
-            </div>
-            <button class="submit" type="submit">Tải lên HTML</button>
           </form>
         </div>
       </section>
@@ -108,6 +101,27 @@
         panels.forEach((panel) => panel.classList.toggle('active', panel.id === `panel-${view}`));
       });
     });
+
+    const rtcStatus = document.getElementById('rtc-status');
+    const rtcTime = document.getElementById('rtc-time');
+    const rtcDate = document.getElementById('rtc-date');
+    async function updateRtcTime() {
+      if (!document.getElementById('panel-advanced').classList.contains('active')) return;
+      try {
+        const response = await fetch('/api/rtc', {cache: 'no-store'});
+        const result = await response.json();
+        if (!response.ok || !result.available) throw new Error(result.message || 'Không đọc được RTC.');
+        rtcTime.textContent = result.time;
+        rtcDate.textContent = result.date;
+        // rtcStatus.textContent = 'Đang đọc thời gian từ đồng hồ nội ESP32 (NTP)';
+      } catch (error) {
+        rtcTime.textContent = '--:--:--';
+        rtcDate.textContent = '--/--/----';
+        rtcStatus.textContent = error.message;
+      }
+    }
+    setInterval(updateRtcTime, 1000);
+    updateRtcTime();
   </script>
 </body>
 </html>

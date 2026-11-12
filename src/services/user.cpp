@@ -1,4 +1,4 @@
-#include "services/user/user_manager.h"
+#include "services/user.h"
 
 namespace UserManager {
 namespace {

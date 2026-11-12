@@ -2,10 +2,10 @@
 #include <LittleFS.h>
 #include <WebServer.h>
 
-#include "services/ota/ota_manager.h"
-#include "services/page_manager/page_manager.h"
-#include "services/user/user_manager.h"
-#include "services/wifi/wifi_config.h"
+#include "services/ota.h"
+#include "services/rtc.h"
+#include "services/user.h"
+#include "services/wifi.h"
 
 namespace {
 WebServer server(80);
@@ -118,6 +118,7 @@ void setup()
     }
 
     WifiConfig::connectSavedNetwork();
+    RtcManager::begin();
 
     server.on("/", HTTP_GET, handleHome);
     server.on("/login", HTTP_POST, handleLogin);
@@ -125,7 +126,7 @@ void setup()
     server.on("/wifi", HTTP_POST, wifi_config);
     server.on("/logout", HTTP_GET, handleLogout);
     OtaManager::registerRoutes(server, isUserAuthenticated);
-    PageManager::registerRoutes(server, isUserAuthenticated);
+    RtcManager::registerRoutes(server, isUserAuthenticated);
     server.serveStatic("/images", LittleFS, "/images");
     server.onNotFound([]() {
         server.send(404, "text/plain; charset=utf-8", "Khong tim thay trang.");
