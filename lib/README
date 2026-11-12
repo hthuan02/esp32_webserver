@@ -44,3 +44,29 @@ libraries by scanning project source files.
 
 More information about PlatformIO Library Dependency Finder
 - https://docs.platformio.org/page/librarymanager/ldf.html
+
+
+```cpp
+ESP32_IOT_PROJECT/
+│
+├── src/
+│   ├── main.cpp
+│   │
+│   ├── app/
+│   │   ├── app.h
+│   │   └── app.cpp
+│   │
+│   ├── services/
+│   │   └── wifi/
+│   │       ├── wifi_manager.h
+│   │       └── wifi_manager.cpp
+│   │
+│   └── web/
+│       ├── webserver.h
+│       └── webserver.cpp
+│
+├── include/
+├── lib/
+├── platformio.ini
+└── .gitignore
+```

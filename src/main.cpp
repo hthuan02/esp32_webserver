@@ -4,8 +4,8 @@
 #include <WebServer.h>
 
 // WiFi configuration
-const char *ssid = "iPhone";
-const char *pass_word = "20138131";
+const char *ssid = "MEI_RD_2.4G";
+const char *pass_word = "@778899@";
 
 WebServer server(80);
 
