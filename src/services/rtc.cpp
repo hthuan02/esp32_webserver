@@ -25,14 +25,14 @@ void handleTimeRequest()
     if (!isAuthorized())
     {
         rtcServer->send(401, "application/json; charset=utf-8",
-                        "{\"available\":false,\"message\":\"Vui long dang nhap.\"}");
+                        "{\"available\":false,\"message\":\"Người dùng xác thực.\"}");
         return;
     }
 
     if (!hasValidSystemTime())
     {
         rtcServer->send(503, "application/json; charset=utf-8",
-                        "{\"available\":false,\"message\":\"ESP32 dang cho dong bo thoi gian qua Wi-Fi/NTP.\"}");
+                        "{\"available\":false,\"message\":\"ESP32 đang chờ bật đồng bộ thời gian qua Wifi/NTP.\"}");
         return;
     }
 

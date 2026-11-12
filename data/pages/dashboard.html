@@ -35,30 +35,30 @@
       <div class="brand"><strong>MEI</strong> CONNECT</div>
       <nav class="nav" aria-label="Điều hướng">
         <button type="button" class="active" data-view="overview">Tổng quan</button>
-        <button type="button" data-view="connection">Kết nối</button>
+        <button type="button" data-view="connection">Cấu hình mở rộng</button>
         <button type="button" data-view="advanced">Chế độ hoạt động</button>
-        <button type="button" data-view="admin">Quản trị</button>
+        <button type="button" data-view="admin">Cập nhật firmware (OTA)</button>
         <button type="button" onclick="location.href='/logout'">Đăng xuất</button>
       </nav>
     </aside>
 
     <main class="main">
       <section class="panel active" id="panel-overview">
-        <h1 class="page-heading">Tổng quan</h1>
-        <p class="page-subtitle">Trạng thái quản trị thiết bị MEI CONNECT.</p>
-        <div class="card"><h2>Thiết bị</h2><p class="muted">Chọn mục <strong>Kết nối</strong> ở thanh bên để cấu hình mạng Wi-Fi.</p></div>
+        <h1 class="page-heading">Tổng quan (updating...)</h1>
+        <!-- <p class="page-subtitle">Trạng thái quản trị thiết bị MEI CONNECT.</p> -->
+        <!-- <div class="card"><h2>Updating...</h2><p class="muted">Chọn mục <strong>Kết nối</strong> ở thanh bên để cấu hình mạng Wi-Fi.</p></div> -->
       </section>
 
       <section class="panel" id="panel-connection">
         <h1 class="page-heading">Kết nối</h1>
         <p class="page-subtitle">Cấu hình Wi-Fi cho thiết bị.</p>
         <div class="card">
-          <h2>Kết nối Wi-Fi</h2>
-          <p class="muted">Nhập tên và mật khẩu mạng Wi-Fi. Khi kết nối thành công, địa chỉ IP của ESP32 sẽ được in trên Serial Monitor.</p>
+          <h2>Thay đổi kết nối Wi-Fi</h2>
+          <!-- <p class="muted">Nhập tên và mật khẩu mạng Wi-Fi. Khi kết nối thành công, địa chỉ IP của ESP32 sẽ được in trên Serial Monitor.</p> -->
           <form action="/wifi" method="post" autocomplete="off">
             <div class="field"><label for="ssid">Tên Wi-Fi (SSID)</label><input id="ssid" name="ssid" type="text" placeholder="Nhập tên Wi-Fi" required></div>
             <div class="field"><label for="wifi-password">Mật khẩu Wi-Fi</label><input id="wifi-password" name="password" type="password" placeholder="Nhập mật khẩu Wi-Fi"></div>
-            <button class="submit" type="submit">Kết nối Wi-Fi mới</button>
+            <button class="submit" type="submit">Connect</button>
           </form>
         </div>
       </section>
@@ -76,8 +76,8 @@
       </section>
 
       <section class="panel" id="panel-admin">
+        <h2>Cập nhật firmware cho ESP32</h2>
         <div class="card">
-          <h2>Cập nhật firmware cho ESP32</h2>
           <p class="muted">Chọn file firmware.bin, để cập nhật firmware.</p>
           <form action="/ota/update" method="post" enctype="multipart/form-data">
             <div class="field">
