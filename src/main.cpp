@@ -1,30 +1,14 @@
 #include <Arduino.h>
-#include <WiFi.h>
 #include <WebServer.h>
-#include <Preferences.h>
+
+#include "wifi_config/wifi_config.h"
 
 namespace {
-constexpr char kDefaultSsid[] = "MEI_RD_2.4G";
-constexpr char kDefaultPassword[] = "@778899@";
 constexpr char kLoginUsername[] = "esp32";
 constexpr char kLoginPassword[] = "1234";
-constexpr unsigned long kWifiTimeoutMs = 15000;
 
 WebServer server(80);
-Preferences preferences;
-String currentSsid;
-String currentPassword;
 bool isAuthenticated = false;
-
-bool waitForWifi(unsigned long timeoutMs)
-{
-    const unsigned long startedAt = millis();
-    while (WiFi.status() != WL_CONNECTED && millis() - startedAt < timeoutMs)
-    {
-        delay(250);
-    }
-    return WiFi.status() == WL_CONNECTED;
-}
 
 void redirectToLogin()
 {
@@ -120,45 +104,12 @@ void wifi_config()
         return;
     }
 
-    const String oldSsid = currentSsid;
-    const String oldPassword = currentPassword;
     server.send(200, "text/html; charset=utf-8",
                 "<!doctype html><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>"
                 "<title>Đang đổi Wi-Fi</title><h2>Đang kết nối Wi-Fi mới...</h2>"
                 "<p>Vui lòng chờ. Địa chỉ IP mới sẽ xuất hiện trên Serial Monitor.</p>");
     delay(300);
-
-    Serial.print("Dang ket noi Wi-Fi moi: ");
-    Serial.println(newSsid);
-    WiFi.disconnect(false, false);
-    WiFi.begin(newSsid.c_str(), newPassword.c_str());
-
-    if (waitForWifi(kWifiTimeoutMs))
-    {
-        currentSsid = newSsid;
-        currentPassword = newPassword;
-        preferences.begin("wifi-config", false);
-        preferences.putString("ssid", currentSsid);
-        preferences.putString("password", currentPassword);
-        preferences.end();
-        Serial.println("Da ket noi Wi-Fi moi.");
-        Serial.print("IP moi cua ESP32: http://");
-        Serial.println(WiFi.localIP());
-        return;
-    }
-
-    Serial.println("Khong ket noi duoc Wi-Fi moi; dang khoi phuc cau hinh cu.");
-    WiFi.disconnect(false, false);
-    WiFi.begin(oldSsid.c_str(), oldPassword.c_str());
-    if (waitForWifi(kWifiTimeoutMs))
-    {
-        Serial.print("Da khoi phuc Wi-Fi cu. IP: http://");
-        Serial.println(WiFi.localIP());
-    }
-    else
-    {
-        Serial.println("Khong ket noi duoc Wi-Fi cu. Kiem tra router va cau hinh.");
-    }
+    WifiConfig::changeNetwork(newSsid, newPassword);
 }
 
 void handleHome()
@@ -182,25 +133,7 @@ void setup()
 {
     Serial.begin(115200);
 
-    preferences.begin("wifi-config", true);
-    currentSsid = preferences.getString("ssid", kDefaultSsid);
-    currentPassword = preferences.getString("password", kDefaultPassword);
-    preferences.end();
-
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(currentSsid.c_str(), currentPassword.c_str());
-    Serial.print("Dang ket noi Wi-Fi: ");
-    Serial.println(currentSsid);
-    while (!waitForWifi(kWifiTimeoutMs))
-    {
-        Serial.println("Chua ket noi duoc. Thu lai sau 3 giay...");
-        delay(3000);
-        WiFi.disconnect(false, false);
-        WiFi.begin(currentSsid.c_str(), currentPassword.c_str());
-    }
-
-    Serial.print("IP cua ESP32: http://");
-    Serial.println(WiFi.localIP());
+    WifiConfig::connectSavedNetwork();
 
     server.on("/", HTTP_GET, handleHome);
     server.on("/login", HTTP_POST, handleLogin);
@@ -211,9 +144,19 @@ void setup()
         server.send(404, "text/plain; charset=utf-8", "Khong tim thay trang.");
     });
     server.begin();
+    Serial.println("Web server da bat dau tren cong 80.");
 }
 
 void loop()
 {
+    if (Serial.available() > 0)
+    {
+        const char command = static_cast<char>(Serial.read());
+        if (command == 'r' || command == 'R')
+        {
+            WifiConfig::resetSavedNetwork();
+        }
+    }
+
     server.handleClient();
 }
