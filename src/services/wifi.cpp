@@ -12,6 +12,93 @@ constexpr unsigned long kWifiTimeoutMs = 15000;
 Preferences preferences;
 String currentSsid;
 String currentPassword;
+WebServer* wifiServer = nullptr;
+WifiConfig::AuthenticationCheck authenticationCheck = nullptr;
+
+String escapeJson(const String& value)
+{
+    String escaped;
+    escaped.reserve(value.length() + 8);
+    for (size_t i = 0; i < value.length(); ++i)
+    {
+        const char character = value[i];
+        if (character == '"')
+        {
+            escaped += "\\\"";
+        }
+        else if (character == '\\')
+        {
+            escaped += "\\\\";
+        }
+        else if (static_cast<uint8_t>(character) < 0x20)
+        {
+            char encoded[7];
+            snprintf(encoded, sizeof(encoded), "\\u%04x", static_cast<uint8_t>(character));
+            escaped += encoded;
+        }
+        else
+        {
+            escaped += character;
+        }
+    }
+    return escaped;
+}
+
+bool isAuthorized()
+{
+    return authenticationCheck != nullptr && authenticationCheck();
+}
+
+void handleScanNetworks()
+{
+    if (!isAuthorized())
+    {
+        wifiServer->send(401, "application/json; charset=utf-8",
+                         "{\"available\":false,\"message\":\"Vui long dang nhap.\"}");
+        return;
+    }
+
+    const int networkCount = WiFi.scanNetworks(false, false);
+    if (networkCount < 0)
+    {
+        wifiServer->send(503, "application/json; charset=utf-8",
+                         "{\"available\":false,\"message\":\"Quet Wi-Fi that bai. Hay thu lai.\"}");
+        return;
+    }
+
+    String json = "{\"available\":true,\"networks\":[";
+    for (int i = 0; i < networkCount; ++i)
+    {
+        if (i > 0)
+        {
+            json += ',';
+        }
+        json += "{\"ssid\":\"";
+        json += escapeJson(WiFi.SSID(i));
+        json += "\",\"rssi\":";
+        json += String(WiFi.RSSI(i));
+        json += ",\"secured\":";
+        json += (WiFi.encryptionType(i) == WIFI_AUTH_OPEN) ? "false" : "true";
+        json += '}';
+    }
+    json += "]}";
+    WiFi.scanDelete();
+    wifiServer->send(200, "application/json; charset=utf-8", json);
+}
+
+void handleForgetSavedNetwork()
+{
+    if (!isAuthorized())
+    {
+        wifiServer->send(401, "text/plain; charset=utf-8", "Vui long dang nhap.");
+        return;
+    }
+
+    wifiServer->send(200, "text/plain; charset=utf-8",
+                     "Da xoa Wi-Fi da luu. ESP32 se khoi dong lai voi Wi-Fi mac dinh.");
+    delay(250);
+    resetSavedNetwork();
+}
 
 bool waitForWifi(unsigned long timeoutMs)
 {
@@ -101,6 +188,14 @@ void resetSavedNetwork()
     Serial.println("Da xoa Wi-Fi da luu. ESP32 se khoi dong lai voi Wi-Fi mac dinh.");
     delay(500);
     ESP.restart();
+}
+
+void registerRoutes(WebServer& server, AuthenticationCheck isAuthenticated)
+{
+    wifiServer = &server;
+    authenticationCheck = isAuthenticated;
+    server.on("/api/wifi/scan", HTTP_GET, handleScanNetworks);
+    server.on("/wifi/forget", HTTP_POST, handleForgetSavedNetwork);
 }
 
 } // namespace WifiConfig

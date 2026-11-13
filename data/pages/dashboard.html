@@ -25,6 +25,15 @@
     .telemetry-item span{display:block;color:#7b8992;font-size:13px;margin-bottom:8px}
     .telemetry-item strong{font-size:24px;color:#263746;font-variant-numeric:tabular-nums}
     @media(max-width:700px){.telemetry-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    .wifi-list{margin-top:14px}
+    .wifi-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid #e1e7ed}
+    .wifi-name{font-size:14px;color:#263746;overflow-wrap:anywhere}
+    .wifi-meta{margin-top:4px;color:#7b8992;font-size:12px}
+    .wifi-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+    .secondary{min-height:38px;padding:0 13px;border:1px solid #dce3eb;border-radius:8px;background:#fff;color:#263746;font-size:13px;cursor:pointer}
+    .secondary:hover{background:#f3f6f8}
+    .wifi-select{flex-shrink:0}
+    @media(max-width:500px){.wifi-row{align-items:flex-start}.wifi-select{align-self:center}}
     .field{margin:17px 0}label{display:block;margin-bottom:8px;color:#65737e;font-size:14px}
     input{width:100%;height:48px;padding:0 13px;border:1px solid #dce3eb;border-radius:8px;background:#f2f4f8;color:#263746;font-size:15px;outline:none}
     input[type="file"]{height:auto;min-height:48px;padding:10px 12px}
@@ -40,7 +49,7 @@
       <div class="brand"><strong>MEI</strong> CONNECT</div>
       <nav class="nav" aria-label="Điều hướng">
         <button type="button" class="active" data-view="overview">Tổng quan</button>
-        <button type="button" data-view="connection">Cấu hình mở rộng</button>
+        <button type="button" data-view="connection">Kết nối Wi‑Fi</button>
         <button type="button" data-view="advanced">Chế độ hoạt động</button>
         <button type="button" data-view="admin">Cập nhật firmware (OTA)</button>
         <button type="button" onclick="location.href='/logout'">Đăng xuất</button>
@@ -55,15 +64,32 @@
       </section>
 
       <section class="panel" id="panel-connection">
-        <h1 class="page-heading">Kết nối</h1>
-        <p class="page-subtitle">Cấu hình Wi-Fi cho thiết bị.</p>
+        <h1 class="page-heading">Kết nối Wi‑Fi</h1>
+        <p class="page-subtitle">Quét mạng không dây gần ESP32, chọn SSID rồi nhập mật khẩu để kết nối.</p>
         <div class="card">
-          <h2>Thay đổi kết nối Wi-Fi</h2>
-          <!-- <p class="muted">Nhập tên và mật khẩu mạng Wi-Fi. Khi kết nối thành công, địa chỉ IP của ESP32 sẽ được in trên Serial Monitor.</p> -->
+          <h2>Mạng không dây khả dụng</h2>
+          <p id="wifi-scan-status" class="muted" role="status">Nhấn “Quét Wi‑Fi” để tìm mạng gần đây.</p>
+          <div class="wifi-actions">
+            <button id="wifi-scan-button" class="secondary" type="button">Quét Wi‑Fi</button>
+          </div>
+          <div id="wifi-networks" class="wifi-list" aria-live="polite"></div>
+        </div>
+        <div class="card" style="margin-top:16px">
+          <h2>Cấu hình mạng</h2>
           <form action="/wifi" method="post" autocomplete="off">
-            <div class="field"><label for="ssid">Tên Wi-Fi (SSID)</label><input id="ssid" name="ssid" type="text" placeholder="Nhập tên Wi-Fi" required></div>
-            <div class="field"><label for="wifi-password">Mật khẩu Wi-Fi</label><input id="wifi-password" name="password" type="password" placeholder="Nhập mật khẩu Wi-Fi"></div>
-            <button class="submit" type="submit">Connect</button>
+            <div class="field">
+              <label for="wifi-ssid">Tên Wi‑Fi (SSID)</label>
+              <input id="wifi-ssid" name="ssid" type="text" placeholder="Chọn mạng ở danh sách phía trên" required>
+            </div>
+            <div class="field">
+              <label for="wifi-password">Mật khẩu Wi‑Fi</label>
+              <input id="wifi-password" name="password" type="password" placeholder="Nhập mật khẩu Wi‑Fi">
+              <p class="muted">Để trống nếu mạng không có mật khẩu.</p>
+            </div>
+            <div class="wifi-actions">
+              <button class="submit" type="submit">Lưu &amp; kết nối</button>
+              <button id="wifi-forget-button" class="secondary" type="button">Quên mạng đã lưu</button>
+            </div>
           </form>
         </div>
       </section>
@@ -119,6 +145,69 @@
       });
     });
 
+
+    const wifiScanButton = document.getElementById('wifi-scan-button');
+    const wifiScanStatus = document.getElementById('wifi-scan-status');
+    const wifiNetworks = document.getElementById('wifi-networks');
+    const wifiSsidInput = document.getElementById('wifi-ssid');
+    const wifiPasswordInput = document.getElementById('wifi-password');
+
+    wifiScanButton.addEventListener('click', async () => {
+      wifiScanButton.disabled = true;
+      wifiScanStatus.textContent = 'Đang quét Wi‑Fi...';
+      wifiNetworks.replaceChildren();
+      try {
+        const response = await fetch('/api/wifi/scan', {cache: 'no-store'});
+        const result = await response.json();
+        if (!response.ok || !result.available) throw new Error(result.message || 'Quét Wi‑Fi thất bại.');
+        if (result.networks.length === 0) {
+          wifiScanStatus.textContent = 'Không tìm thấy mạng Wi‑Fi nào.';
+          return;
+        }
+        wifiScanStatus.textContent = `Tìm thấy ${result.networks.length} mạng Wi‑Fi.`;
+        result.networks.forEach((network) => {
+          const row = document.createElement('div');
+          row.className = 'wifi-row';
+          const details = document.createElement('div');
+          const name = document.createElement('div');
+          name.className = 'wifi-name';
+          name.textContent = network.ssid || '(Mạng ẩn)';
+          const meta = document.createElement('div');
+          meta.className = 'wifi-meta';
+          meta.textContent = `${network.rssi} dBm · ${network.secured ? 'Có mật khẩu' : 'Mở'}`;
+          details.append(name, meta);
+          const select = document.createElement('button');
+          select.type = 'button';
+          select.className = 'secondary wifi-select';
+          select.textContent = 'Chọn';
+          select.disabled = !network.ssid;
+          select.addEventListener('click', () => {
+            wifiSsidInput.value = network.ssid;
+            wifiPasswordInput.value = '';
+            wifiScanStatus.textContent = `Đã chọn mạng ${network.ssid}. Nhập mật khẩu nếu cần.`;
+            wifiPasswordInput.focus();
+          });
+          row.append(details, select);
+          wifiNetworks.append(row);
+        });
+      } catch (error) {
+        wifiScanStatus.textContent = error.message;
+      } finally {
+        wifiScanButton.disabled = false;
+      }
+    });
+
+    document.getElementById('wifi-forget-button').addEventListener('click', async () => {
+      if (!confirm('Xóa Wi‑Fi đã lưu và khởi động lại ESP32?')) return;
+      try {
+        const response = await fetch('/wifi/forget', {method: 'POST'});
+        const message = await response.text();
+        if (!response.ok) throw new Error(message);
+        wifiScanStatus.textContent = message;
+      } catch (error) {
+        wifiScanStatus.textContent = error.message;
+      }
+    });
     const rtcStatus = document.getElementById('rtc-status');
     const rtcTime = document.getElementById('rtc-time');
     const rtcDate = document.getElementById('rtc-date');

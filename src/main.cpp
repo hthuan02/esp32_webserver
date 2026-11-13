@@ -130,6 +130,7 @@ void setup()
     OtaManager::registerRoutes(server, isUserAuthenticated);
     RtcManager::registerRoutes(server, isUserAuthenticated);
     ThingsBoard::registerRoutes(server, isUserAuthenticated);
+    WifiConfig::registerRoutes(server, isUserAuthenticated);
     server.serveStatic("/images", LittleFS, "/images");
     server.onNotFound([]() {
         server.send(404, "text/plain; charset=utf-8", "Unfound this page!.");
