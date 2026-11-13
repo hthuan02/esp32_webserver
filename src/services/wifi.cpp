@@ -5,15 +5,18 @@
 
 namespace WifiConfig {
 namespace {
-constexpr char kDefaultSsid[] = "MEI_RD_2.4G";
+constexpr char kDefaultSsid[] = "MEI_RD_5G";
 constexpr char kDefaultPassword[] = "@778899@";
 constexpr unsigned long kWifiTimeoutMs = 15000;
+constexpr unsigned long kReconnectIntervalMs = 10000;
 
 Preferences preferences;
 String currentSsid;
 String currentPassword;
 WebServer* wifiServer = nullptr;
 WifiConfig::AuthenticationCheck authenticationCheck = nullptr;
+unsigned long lastReconnectAttempt = 0;
+bool connectionWasLogged = false;
 
 String escapeJson(const String& value)
 {
@@ -130,17 +133,34 @@ void connectSavedNetwork()
     WiFi.begin(currentSsid.c_str(), currentPassword.c_str());
     Serial.print("Dang ket noi Wi-Fi: ");
     Serial.println(currentSsid);
+    lastReconnectAttempt = millis();
+    connectionWasLogged = false;
+}
 
-    while (!waitForWifi(kWifiTimeoutMs))
+void loop()
+{
+    if (WiFi.status() == WL_CONNECTED)
     {
-        Serial.println("Chua ket noi duoc. Thu lai sau 3 giay...");
-        delay(3000);
-        WiFi.disconnect(false, false);
-        WiFi.begin(currentSsid.c_str(), currentPassword.c_str());
+        if (!connectionWasLogged)
+        {
+            Serial.print("Wi-Fi connected. ESP32 IP: http://");
+            Serial.println(WiFi.localIP());
+            connectionWasLogged = true;
+        }
+        return;
     }
 
-    Serial.print("IP cua ESP32: http://");
-    Serial.println(WiFi.localIP());
+    connectionWasLogged = false;
+    if (currentSsid.isEmpty() || millis() - lastReconnectAttempt < kReconnectIntervalMs)
+    {
+        return;
+    }
+
+    Serial.print("Wi-Fi disconnected; retrying: ");
+    Serial.println(currentSsid);
+    WiFi.disconnect(false, false);
+    WiFi.begin(currentSsid.c_str(), currentPassword.c_str());
+    lastReconnectAttempt = millis();
 }
 
 bool changeNetwork(const String& ssid, const String& password)
@@ -150,6 +170,7 @@ bool changeNetwork(const String& ssid, const String& password)
 
     Serial.print("Dang ket noi Wi-Fi moi: ");
     Serial.println(ssid);
+    connectionWasLogged = false;
     WiFi.disconnect(false, false);
     WiFi.begin(ssid.c_str(), password.c_str());
 
@@ -161,6 +182,7 @@ bool changeNetwork(const String& ssid, const String& password)
         Serial.println("Da ket noi Wi-Fi moi.");
         Serial.print("IP moi cua ESP32: http://");
         Serial.println(WiFi.localIP());
+        connectionWasLogged = true;
         return true;
     }
 
@@ -171,6 +193,7 @@ bool changeNetwork(const String& ssid, const String& password)
     {
         Serial.print("Da khoi phuc Wi-Fi cu. IP: http://");
         Serial.println(WiFi.localIP());
+        connectionWasLogged = true;
     }
     else
     {

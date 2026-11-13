@@ -4,7 +4,7 @@
 
 #include "services/ota.h"
 #include "services/rtc.h"
-#include "services/things_board.h"
+#include "services/thingsboard.h"
 #include "services/user.h"
 #include "services/wifi.h"
 
@@ -118,8 +118,8 @@ void setup()
         Serial.println("LittleFS mount that bai. Hay upload filesystem image.");
     }
 
-    WifiConfig::connectSavedNetwork();
     RtcManager::begin();
+    WifiConfig::connectSavedNetwork();
     ThingsBoard::begin();
 
     server.on("/", HTTP_GET, handleHome);
@@ -152,5 +152,7 @@ void loop()
     }
 
     server.handleClient();
+    WifiConfig::loop();
+    RtcManager::loop();
     ThingsBoard::loop();
 }

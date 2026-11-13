@@ -9,6 +9,7 @@ using AuthenticationCheck = bool (*)();
 
 // Loads saved router credentials (or defaults) and retries until connected.
 void connectSavedNetwork();
+void loop();
 
 // Attempts a new network; saves it on success and restores the current one on failure.
 bool changeNetwork(const String& ssid, const String& password);
