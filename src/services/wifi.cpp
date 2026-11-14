@@ -5,7 +5,7 @@
 
 namespace WifiConfig {
 namespace {
-constexpr char kDefaultSsid[] = "MEI_RD_5G";
+constexpr char kDefaultSsid[] = "MEI_RD_2.4G";
 constexpr char kDefaultPassword[] = "@778899@";
 constexpr unsigned long kWifiTimeoutMs = 15000;
 constexpr unsigned long kReconnectIntervalMs = 10000;
