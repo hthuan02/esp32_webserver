@@ -126,14 +126,13 @@
         </div>
         <div class="card" style="margin-top:16px">
           <h2>Bản ghi dữ liệu</h2>
-          <!-- <p class="muted">Mỗi bản ghi cách nhau 10 giây. Sau dòng thứ 7, danh sách bắt đầu chu kỳ mới.</p> -->
           <div class="demo-table-wrap">
             <table class="demo-record-table" aria-live="polite">
               <thead>
-                <tr><th>Thời gian đo</th><th>sensor1</th><th>sensor2</th><th>sensor3</th><th>sensor4</th></tr>
+                <tr><th>ID</th><th>Thời gian đo</th><th>sensor1</th><th>sensor2</th><th>sensor3</th><th>sensor4</th><th>Trạng thái</th></tr>
               </thead>
               <tbody id="demo-records">
-                <tr><td colspan="5">Đang chờ thời gian hợp lệ từ RTC DS3231...</td></tr>
+                <tr><td colspan="7">Đang chờ thời gian hợp lệ từ RTC DS3231...</td></tr>
               </tbody>
             </table>
           </div>
@@ -270,13 +269,17 @@
         if (result.records.length === 0) {
           const emptyRow = document.createElement('tr');
           const emptyCell = document.createElement('td');
-          emptyCell.colSpan = 5;
+          emptyCell.colSpan = 7;
           emptyCell.textContent = 'Chưa có bản ghi; kiểm tra RTC DS3231.';
           emptyRow.append(emptyCell);
           demoRecords.append(emptyRow);
         } else {
           result.records.forEach((record) => {
             const row = document.createElement('tr');
+            const idCell = document.createElement('td');
+            idCell.textContent = record.id;
+            idCell.title = record.id;
+            row.append(idCell);
             const measuredAt = document.createElement('td');
             measuredAt.textContent = record.timestamp.slice(-8);
             measuredAt.title = record.timestamp;
@@ -286,6 +289,9 @@
               cell.textContent = Number(record[sensor]).toFixed(1);
               row.append(cell);
             });
+            const statusCell = document.createElement('td');
+            statusCell.textContent = record.status || 'Chờ gửi';
+            row.append(statusCell);
             demoRecords.append(row);
           });
         }

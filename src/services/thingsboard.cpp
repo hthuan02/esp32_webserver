@@ -3,15 +3,17 @@
 #include <Arduino.h>
 #include <LittleFS.h>
 #include <MQTT.h>
+#include <Preferences.h>
 #include <WiFi.h>
 #include <esp_system.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 
 #include "drivers/ds3231.h"
-#if __has_include("services/thingsboard_secrets.h")
-#include "services/thingsboard_secrets.h"
+#if __has_include("services/thingsboard_token.h")
+#include "services/thingsboard_token.h"
 #else
 namespace ThingsBoardSecrets {
 constexpr char kHost[] = "mqtt.thingsboard.cloud";
@@ -35,6 +37,7 @@ constexpr char kQueueCursorTempPath[] = "/thingsboard_queue.ptr.tmp";
 
 struct DemoTelemetry
 {
+    char ID[17] = {};
     float sensor1 = 0.0f;
     float sensor2 = 0.0f;
     float sensor3 = 0.0f;
@@ -44,6 +47,7 @@ struct DemoTelemetry
 struct DemoRecord
 {
     char timestamp[20] = {};
+    char status[24] = "Chờ gửi";
     DemoTelemetry values;
 };
 
@@ -77,12 +81,14 @@ bool isAuthorized()
     return authenticationCheck != nullptr && authenticationCheck();
 }
 
+// hàm tạo giá trị random cho 4 cảm biến
 float randomFloat(float minimum, float maximum)
 {
     const float unit = static_cast<float>(esp_random()) / 4294967295.0f;
     return minimum + unit * (maximum - minimum);
 }
 
+// hàm tạo 4 cột giá trị sensor lên thingsboard
 void generateDemoTelemetry()
 {
     telemetry.sensor1 = randomFloat(0.0f, 100.0f);
@@ -91,7 +97,38 @@ void generateDemoTelemetry()
     telemetry.sensor4 = randomFloat(0.0f, 100.0f);
 }
 
-void appendDemoRecord(time_t epoch)
+// hàm tạo record_id để không bị trùng dữ liệu trên thingsboard
+bool generateRecordId(char (&id)[17])
+{
+    Preferences preferences;
+    if (!preferences.begin("tb-records", false))
+    {
+        Serial.println("ThingsBoard ID: khong mo duoc NVS; bo qua mau de tranh ID trung.");
+        return false;
+    }
+
+    const uint32_t nextId = preferences.getUInt("nextId", 1);
+    if (nextId == 0)
+    {
+        preferences.end();
+        Serial.println("ThingsBoard ID: da het bo dem ID.");
+        return false;
+    }
+
+    const uint32_t followingId = nextId == UINT32_MAX ? 0 : nextId + 1;
+    const size_t written = preferences.putUInt("nextId", followingId);
+    preferences.end();
+    if (written != sizeof(uint32_t))
+    {
+        Serial.println("ThingsBoard ID: khong luu duoc bo dem vao NVS.");
+        return false;
+    }
+
+    snprintf(id, sizeof(id), "ESP01_%06lu", static_cast<unsigned long>(nextId));
+    return true;
+}
+
+void appendDemoRecord(time_t epoch, const DemoTelemetry& values, const char* status)
 {
     if (recordCount == kRecordLimit)
     {
@@ -106,26 +143,51 @@ void appendDemoRecord(time_t epoch)
 
     DemoRecord& record = records[recordCount];
     strftime(record.timestamp, sizeof(record.timestamp), "%d/%m/%Y-%H:%M:%S", &localTime);
-    record.values = telemetry;
+    record.values = values;
+    snprintf(record.status, sizeof(record.status), "%s", status);
     ++recordCount;
+}
+
+void setDemoRecordStatus(const char* id, const char* status)
+{
+    for (size_t i = 0; i < recordCount; ++i)
+    {
+        if (strcmp(records[i].values.ID, id) == 0)
+        {
+            snprintf(records[i].status, sizeof(records[i].status), "%s", status);
+            return;
+        }
+    }
 }
 
 bool parseQueueLine(const String& line, TelemetrySample& sample)
 {
+    char recordId[17] = {};
     unsigned long long timestampMs = 0;
     float sensor1 = 0.0f;
     float sensor2 = 0.0f;
     float sensor3 = 0.0f;
     float sensor4 = 0.0f;
-    const int parsed = sscanf(line.c_str(), "%llu,%f,%f,%f,%f",
-                              &timestampMs, &sensor1, &sensor2, &sensor3, &sensor4);
-    if (parsed != 5)
+    int parsed = sscanf(line.c_str(), "%16[^,],%llu,%f,%f,%f,%f",
+                        recordId, &timestampMs, &sensor1, &sensor2, &sensor3, &sensor4);
+    if (parsed != 6)
     {
-        return false;
+        // Backward compatibility for rows written before IDs were added.
+        parsed = sscanf(line.c_str(), "%llu,%f,%f,%f,%f",
+                        &timestampMs, &sensor1, &sensor2, &sensor3, &sensor4);
+        if (parsed != 5)
+        {
+            return false;
+        }
+        snprintf(recordId, sizeof(recordId), "L%015llX", timestampMs);
     }
 
     sample.timestampMs = static_cast<uint64_t>(timestampMs);
-    sample.values = {sensor1, sensor2, sensor3, sensor4};
+    snprintf(sample.values.ID, sizeof(sample.values.ID), "%s", recordId);
+    sample.values.sensor1 = sensor1;
+    sample.values.sensor2 = sensor2;
+    sample.values.sensor3 = sensor3;
+    sample.values.sensor4 = sensor4;
     return sample.timestampMs >= static_cast<uint64_t>(kMinimumValidEpoch) * 1000ULL;
 }
 
@@ -141,6 +203,7 @@ void pushLoadedSample(const TelemetrySample& sample)
     ++queueCount;
 }
 
+// khi khởi động lại, đọc lại file để khôi phục backlog (backup lại data)
 void loadPendingQueue()
 {
     File queueFile = LittleFS.open(kQueuePath, "r");
@@ -172,10 +235,20 @@ void loadPendingQueue()
     {
         String line = queueFile.readStringUntil('\n');
         TelemetrySample sample;
+
+        // Đọc file littlefs trên FLASH và backlog dữ liệu để in ra serial monitor
         if (parseQueueLine(line, sample))
         {
             sample.fileEndOffset = static_cast<uint32_t>(queueFile.position());
             pushLoadedSample(sample);
+            const time_t epoch = static_cast<time_t>(sample.timestampMs / 1000ULL);
+            appendDemoRecord(epoch, sample.values, "Chờ gửi");
+            Serial.printf("[QUEUE][RECOVERED][FLASH] ID=%s timestamp_ms=%llu "
+                          "sensor1=%.2f sensor2=%.2f sensor3=%.2f sensor4=%.2f\n",
+                          sample.values.ID,
+                          static_cast<unsigned long long>(sample.timestampMs),
+                          sample.values.sensor1, sample.values.sensor2,
+                          sample.values.sensor3, sample.values.sensor4);
         }
         else
         {
@@ -213,11 +286,13 @@ bool saveQueueCursor(uint32_t offset)
     return LittleFS.rename(kQueueCursorTempPath, kQueueCursorPath);
 }
 
+// Ghi queue vào littlefs trên bộ nhớ FLASH
 bool persistSample(TelemetrySample& sample)
 {
+    // Keep buffering in RAM if LittleFS is unavailable.
     if (!persistentQueueAvailable)
     {
-        return true; // Keep buffering in RAM if LittleFS is unavailable.
+        return true;
     }
 
     File queueFile = LittleFS.open(kQueuePath, "a");
@@ -228,8 +303,9 @@ bool persistSample(TelemetrySample& sample)
         return true;
     }
 
-    char line[112];
-    const int lineLength = snprintf(line, sizeof(line), "%llu,%.2f,%.2f,%.2f,%.2f\n",
+    char line[144];
+    const int lineLength = snprintf(line, sizeof(line), "%s,%llu,%.2f,%.2f,%.2f,%.2f\n",
+                                    sample.values.ID,
                                     static_cast<unsigned long long>(sample.timestampMs),
                                     sample.values.sensor1, sample.values.sensor2,
                                     sample.values.sensor3, sample.values.sensor4);
@@ -248,6 +324,7 @@ bool persistSample(TelemetrySample& sample)
     return true;
 }
 
+// ghi hàng đợi thành file trên littlefs
 bool enqueueSample(const TelemetrySample& sample)
 {
     if (queueCount >= kBacklogCapacity)
@@ -267,6 +344,22 @@ bool enqueueSample(const TelemetrySample& sample)
     const size_t tail = (queueHead + queueCount) % kBacklogCapacity;
     pendingSamples[tail] = queued;
     ++queueCount;
+
+    char timestampText[24] = "unknown";
+    const time_t epoch = static_cast<time_t>(queued.timestampMs / 1000ULL);
+    struct tm localTime;
+    if (localtime_r(&epoch, &localTime) != nullptr)
+    {
+        strftime(timestampText, sizeof(timestampText), "%d/%m/%Y %H:%M:%S", &localTime);
+    }
+
+    Serial.printf("[QUEUE][%s] ID=%s time=%s sensor1=%.2f sensor2=%.2f "
+                  "sensor3=%.2f sensor4=%.2f pending=%u\n",
+                  persistentQueueAvailable ? "FLASH/LittleFS" : "RAM ONLY",
+                  queued.values.ID, timestampText,
+                  queued.values.sensor1, queued.values.sensor2,
+                  queued.values.sensor3, queued.values.sensor4,
+                  static_cast<unsigned>(queueCount));
     return true;
 }
 
@@ -304,10 +397,11 @@ void removeAcknowledgedSample()
 
 String makePayload(const TelemetrySample& sample)
 {
-    char payload[192];
+    char payload[288];
     snprintf(payload, sizeof(payload),
-             "{\"ts\":%llu,\"values\":{\"sensor1\":%.2f,\"sensor2\":%.2f,\"sensor3\":%.2f,\"sensor4\":%.2f}}",
+             "{\"ts\":%llu,\"values\":{\"record_id\":\"%s\",\"status\":\"Đã xác nhận\",\"sensor1\":%.2f,\"sensor2\":%.2f,\"sensor3\":%.2f,\"sensor4\":%.2f}}",
              static_cast<unsigned long long>(sample.timestampMs),
+             sample.values.ID,
              sample.values.sensor1, sample.values.sensor2,
              sample.values.sensor3, sample.values.sensor4);
     return String(payload);
@@ -325,6 +419,7 @@ void updateLastSentTime(uint64_t timestampMs)
     }
 }
 
+// kiểm tra true/false nếu gửi thất bại chưa có PUPACK
 bool publishSample(const TelemetrySample& sample)
 {
     if (!mqttClient.connected())
@@ -337,6 +432,8 @@ bool publishSample(const TelemetrySample& sample)
     return mqttClient.publish(kTelemetryTopic, payload, false, 1);
 }
 
+// tạo mẫu thử gửi MQTT QoS 1 để thingsboard xác nhận kết nối
+// nếu gửi MQTT không thành công, đưa bản ghi vào hàng đợi
 void createMeasurement()
 {
     time_t epoch = 0;
@@ -347,18 +444,29 @@ void createMeasurement()
         return;
     }
 
-    appendDemoRecord(epoch);
+    if (!generateRecordId(telemetry.ID))
+    {
+        sendStatus = "Khong tao mau: khong cap phat duoc record ID duy nhat.";
+        return;
+    }
     TelemetrySample sample;
     sample.timestampMs = static_cast<uint64_t>(epoch) * 1000ULL;
     sample.values = telemetry;
+    appendDemoRecord(epoch, sample.values, "Chờ gửi");
 
-    if (queueCount == 0 && publishSample(sample))
+    if (queueCount == 0)
     {
-        updateLastSentTime(sample.timestampMs);
-        // sendStatus = "MQTT QoS 1 da duoc ThingsBoard xac nhan.";
-        Serial.printf("ThingsBoard PUBACK: sensor1=%.2f sensor2=%.2f sensor3=%.2f sensor4=%.2f\n",
-                      telemetry.sensor1, telemetry.sensor2, telemetry.sensor3, telemetry.sensor4);
-        return;
+        setDemoRecordStatus(telemetry.ID, "Đang gửi");
+        if (publishSample(sample))
+        {
+            setDemoRecordStatus(telemetry.ID, "Đã xác nhận");
+            updateLastSentTime(sample.timestampMs);
+            Serial.printf("ThingsBoard PUBACK: ID=%s sensor1=%.2f sensor2=%.2f sensor3=%.2f sensor4=%.2f\n",
+                          telemetry.ID, telemetry.sensor1, telemetry.sensor2,
+                          telemetry.sensor3, telemetry.sensor4);
+            return;
+        }
+        setDemoRecordStatus(telemetry.ID, "Chờ gửi");
     }
 
     if (enqueueSample(sample))
@@ -366,6 +474,10 @@ void createMeasurement()
         sendStatus = mqttClient.connected()
                          ? "Dang co backlog; mau moi da xep hang cho gui theo thu tu."
                          : "Mat ket noi MQTT; mau da luu de gui bu.";
+    }
+    else
+    {
+        setDemoRecordStatus(telemetry.ID, "Lỗi hàng đợi");
     }
 }
 
@@ -408,21 +520,26 @@ void flushOnePendingSample(uint32_t now)
         return;
     }
 
+    setDemoRecordStatus(sample->values.ID, "Đang gửi");
     if (!publishSample(*sample))
     {
+        setDemoRecordStatus(sample->values.ID, "Chờ gửi");
         sendStatus = "Chua nhan PUBACK; giu backlog va se gui lai.";
         Serial.println("ThingsBoard MQTT: chua co PUBACK; giu ban ghi trong hang doi.");
         return;
     }
 
     const uint64_t sentTimestamp = sample->timestampMs;
+    char acknowledgedId[sizeof(sample->values.ID)];
+    snprintf(acknowledgedId, sizeof(acknowledgedId), "%s", sample->values.ID);
+    setDemoRecordStatus(acknowledgedId, "Đã xác nhận");
     updateLastSentTime(sentTimestamp);
     removeAcknowledgedSample();
     sendStatus = queueCount == 0
                      ? "ThingsBoard đã kết nối."
                      : "ThingsBoard đã xác nhận một bản ghi. Tiếp tục gửi bù.";
-    Serial.printf("ThingsBoard MQTT: đã nhận PUBACK, backlog còn %u.\n",
-                  static_cast<unsigned>(queueCount));
+    Serial.printf("ThingsBoard MQTT: da nhan PUBACK ID=%s, backlog con %u.\n",
+                  acknowledgedId, static_cast<unsigned>(queueCount));
 }
 
 void handleTelemetryRequest()
@@ -435,13 +552,14 @@ void handleTelemetryRequest()
     }
 
     String json;
-    json.reserve(1500);
+    json.reserve(2000);
     json = "{\"available\":true,\"configured\":";
     json += (ThingsBoardSecrets::kAccessToken[0] != '\0') ? "true" : "false";
     json += ",\"mqttConnected\":";
     json += mqttClient.connected() ? "true" : "false";
     json += ",\"pending\":" + String(queueCount);
     json += ",\"dropped\":" + String(droppedSamples);
+    json += ",\"record_id\":\"" + String(telemetry.ID) + "\"";
     json += ",\"sensor1\":" + String(telemetry.sensor1, 2);
     json += ",\"sensor2\":" + String(telemetry.sensor2, 2);
     json += ",\"sensor3\":" + String(telemetry.sensor3, 2);
@@ -455,12 +573,17 @@ void handleTelemetryRequest()
             json += ',';
         }
         const DemoRecord& record = records[i];
-        json += "{\"timestamp\":\"";
+        json += "{\"id\":\"";
+        json += record.values.ID;
+        json += "\",\"timestamp\":\"";
         json += record.timestamp;
         json += "\",\"sensor1\":" + String(record.values.sensor1, 2);
         json += ",\"sensor2\":" + String(record.values.sensor2, 2);
         json += ",\"sensor3\":" + String(record.values.sensor3, 2);
         json += ",\"sensor4\":" + String(record.values.sensor4, 2);
+        json += ",\"status\":\"";
+        json += record.status;
+        json += "\"";
         json += '}';
     }
 

@@ -113,6 +113,7 @@ void setup()
 {
     Serial.begin(115200);
 
+    // Mount LittleFS: khởi tạo để ESP32 truy cập được filesystem
     if (!LittleFS.begin(false))
     {
         Serial.println("LittleFS mount that bai. Hay upload filesystem image.");
