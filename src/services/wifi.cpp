@@ -5,10 +5,10 @@
 
 namespace WifiConfig {
 namespace {
-constexpr char kDefaultSsid[] = "MEI_RD_2.4G";
-constexpr char kDefaultPassword[] = "@778899@";
-constexpr unsigned long kWifiTimeoutMs = 15000;
-constexpr unsigned long kReconnectIntervalMs = 10000;
+const char kDefaultSsid[] = "MEI_RD_2.4G";
+const char kDefaultPassword[] = "@778899@";
+const unsigned long kWifiTimeoutMs = 15000;
+const unsigned long kReconnectIntervalMs = 10000;
 
 Preferences preferences;
 String currentSsid;

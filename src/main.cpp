@@ -2,6 +2,7 @@
 #include <LittleFS.h>
 #include <WebServer.h>
 
+#include "drivers/hikvision.h"
 #include "services/ota.h"
 #include "services/rtc.h"
 #include "services/thingsboard.h"
@@ -9,8 +10,18 @@
 #include "services/wifi.h"
 
 namespace {
+constexpr char kHikvisionIp[] = "192.168.1.66";
+constexpr int kHikvisionPort = 80;
+constexpr char kHikvisionUser[] = "admin";
+constexpr char kHikvisionPassword[] = "Meigroup@";
+constexpr char kGoogleScriptUrl[] = "https://script.google.com/macros/s/AKfycbx9YiEhUxHsYmI_EOLhFObK4ocHCpPJvZ34PxoZIX36vrK0R2DI0WczNVJXChW8BYFo/exec";
+constexpr unsigned long kHikvisionPollIntervalMs = 5000;
+
 WebServer server(80);
+HikvisionClient hikvision(kHikvisionIp, kHikvisionPort, kHikvisionUser,
+                          kHikvisionPassword, kGoogleScriptUrl);
 bool isAuthenticated = false;
+unsigned long lastHikvisionPollTime = 0;
 
 bool isUserAuthenticated()
 {
@@ -156,4 +167,11 @@ void loop()
     WifiConfig::loop();
     RtcManager::loop();
     ThingsBoard::loop();
+
+    const unsigned long currentMillis = millis();
+    if (currentMillis - lastHikvisionPollTime >= kHikvisionPollIntervalMs)
+    {
+        lastHikvisionPollTime = currentMillis;
+        hikvision.fetchEvents();
+    }
 }

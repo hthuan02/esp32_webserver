@@ -3,18 +3,28 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#f0f3f9">
+  <meta name="theme-color" content="#0b293d">
   <title>ESP32 WEBSERVER</title>
   <style>
     *{box-sizing:border-box}
     body{margin:0;min-height:100vh;background:#f0f3f9;color:#263746;font-family:Arial,Helvetica,sans-serif}
-    .layout{min-height:100vh;display:grid;grid-template-columns:190px minmax(0,1fr)}
-    .sidebar{padding:20px 10px;background:#fff;border-right:1px solid #e3e8ee}
-    .brand{padding:7px 12px 24px;font-size:21px;letter-spacing:-.4px;white-space:nowrap}.brand strong{color:#168f91}
+    .layout{min-height:100vh;display:grid;grid-template-columns:210px minmax(0,1fr)}
+    .sidebar{min-height:100vh;display:flex;flex-direction:column;padding:18px 10px 14px;background:linear-gradient(180deg,#12384d 0%,#0b293d 100%);border-right:1px solid #193d51;color:#d9e7ee}
+    .brand{display:flex;align-items:center;gap:9px;margin:0 4px 22px;padding:4px 7px 17px;border-bottom:1px solid #28495b;white-space:nowrap}
+    .brand-logo{width:40px;height:40px;flex:0 0 40px;object-fit:cover;object-position:center top;border:1px solid #dce7eb;border-radius:50%;background:#fff;padding:4px;box-shadow:0 2px 8px #061b2b35}
+    .brand-copy{display:flex;flex-direction:column;gap:2px;color:#f2f7fa;font-size:12px;font-weight:700;letter-spacing:.2px}
+    .brand-copy small{color:#8faab8;font-size:9px;font-weight:600;letter-spacing:2px}
     .nav{display:grid;gap:5px}
-    .nav button{width:100%;padding:10px 13px;border:0;border-radius:8px;background:transparent;color:#74818b;text-align:left;font-size:14px;cursor:pointer}
-    .nav button:hover{background:#f3f6f8;color:#263746}
-    .nav button.active{background:#e4f2f2;color:#138c8e;font-weight:700}
+    .nav button{display:flex;align-items:center;gap:11px;width:100%;min-height:40px;padding:9px 11px;border:0;border-radius:8px;background:transparent;color:#b6c8d2;text-align:left;font-size:13px;font-weight:500;cursor:pointer;transition:background .16s ease,color .16s ease,transform .16s ease}
+    .nav button svg{width:17px;height:17px;flex:0 0 17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+    .nav button:hover{background:#ffffff12;color:#fff;transform:translateX(1px)}
+    .nav button.active{background:linear-gradient(100deg,#0b9d9b,#087f89);color:#fff;font-weight:700;box-shadow:0 5px 14px #061b2b40}
+    .nav button.active svg{color:#fff}
+    .nav button.nav-logout{margin-top:8px;padding-top:14px;border-top:1px solid #28495b;border-radius:0 0 8px 8px}
+    .sidebar-footer{margin-top:auto;padding:14px 9px 0;border-top:1px solid #28495b;color:#8faab8;font-size:10px}
+    .sidebar-footer-label{display:flex;align-items:center;gap:7px;color:#a8bac5;font-weight:700;letter-spacing:.7px}
+    .sidebar-status-dot{width:7px;height:7px;border-radius:50%;background:#21c78a;box-shadow:0 0 8px #21c78a88}
+    .sidebar-host{display:block;margin-top:6px;color:#e0ebf0;font-size:11px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
     .main{min-width:0;padding:25px}
     .page-heading{margin:0 0 4px;font-size:24px}.page-subtitle{margin:0 0 18px;color:#7b8992;font-size:14px}
     .panel{display:none}.panel.active{display:block}
@@ -47,20 +57,21 @@
     input:focus{border-color:#168f91;box-shadow:0 0 0 3px #168f9120}
     .submit{min-height:42px;margin-top:2px;padding:0 16px;border:0;border-radius:8px;background:#108f91;color:#fff;font-size:14px;cursor:pointer}
     .submit:hover{background:#087c7e}
-    @media(max-width:700px){.layout{grid-template-columns:1fr;grid-template-rows:auto 1fr}.sidebar{padding:10px 12px;border-right:0;border-bottom:1px solid #e3e8ee}.brand{padding:4px 5px 10px}.nav{display:flex;overflow-x:auto}.nav button{width:auto;white-space:nowrap}.main{padding:20px 14px}}
+    @media(max-width:700px){.layout{grid-template-columns:1fr;grid-template-rows:auto 1fr}.sidebar{min-height:auto;padding:10px 12px;border-right:0;border-bottom:1px solid #193d51}.brand{margin:0 3px 8px;padding:3px 5px 9px}.brand-logo{width:34px;height:34px;flex-basis:34px;padding:3px}.nav{display:flex;overflow-x:auto;padding-bottom:2px}.nav button{width:auto;min-width:max-content;white-space:nowrap}.nav button.nav-logout{margin-top:0;padding-top:9px;border-top:0;border-left:1px solid #28495b;border-radius:8px}.sidebar-footer{display:none}.main{padding:20px 14px}}
   </style>
 </head>
 <body>
   <div class="layout">
     <aside class="sidebar">
-      <div class="brand"><strong>MEI</strong> CONNECT</div>
+      <div class="brand"><img class="brand-logo" src="/images/meigroup_logo.png" alt="MEI Group"><span class="brand-copy"><strong>MEI CONNECT</strong><small>DEVICE CONSOLE</small></span></div>
       <nav class="nav" aria-label="Điều hướng">
-        <button type="button" class="active" data-view="overview">Tổng quan</button>
-        <button type="button" data-view="connection">Kết nối Wi‑Fi</button>
-        <button type="button" data-view="advanced">Chế độ hoạt động</button>
-        <button type="button" data-view="admin">Cập nhật firmware (OTA)</button>
-        <button type="button" onclick="location.href='/logout'">Đăng xuất</button>
+        <button type="button" class="active" data-view="overview"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-6v-7h-4v7H4a1 1 0 0 1-1-1z"/></svg><span>Tổng quan</span></button>
+        <button type="button" data-view="connection"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9a11 11 0 0 1 14 0M8 12a6.5 6.5 0 0 1 8 0m-5 4a2 2 0 0 1 2 0m-1 4h.01"/></svg><span>Kết nối Wi‑Fi</span></button>
+        <button type="button" data-view="advanced"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/><path d="M9 1v4m6-4v4M9 19v4m6-4v4M1 9h4m-4 6h4m14-6h4m-4 6h4"/></svg><span>Chế độ hoạt động</span></button>
+        <button type="button" data-view="admin"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3m-5 5 5-5 5 5"/><path d="M5 13v7a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-7"/></svg><span>Quản trị</span></button>
+        <button type="button" class="nav-logout" onclick="location.href='/logout'"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17l5-5-5-5m5 5H3"/><path d="M12 3h7a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-7"/></svg><span>Đăng xuất</span></button>
       </nav>
+      <div class="sidebar-footer"><div class="sidebar-footer-label"><span class="sidebar-status-dot"></span>Device Online.</div><span class="sidebar-host" id="sidebar-host">Đang kết nối</span></div>
     </aside>
 
     <main class="main">
@@ -140,9 +151,9 @@
       </section>
 
       <section class="panel" id="panel-admin">
-        <h2>Cập nhật firmware cho ESP32</h2>
+        <h2>Cập nhật Firmware (OTA)</h2>
         <div class="card">
-          <p class="muted">Chọn file firmware.bin, để cập nhật firmware.</p>
+          <p class="muted">Chọn file Firmware (.bin)</p>
           <form action="/ota/update" method="post" enctype="multipart/form-data">
             <div class="field">
               <!-- <label for="firmware">File firmware.bin</label> -->
@@ -156,6 +167,7 @@
   </div>
 
   <script>
+    document.getElementById('sidebar-host').textContent = location.host || 'ESP32 local';
     const navButtons = document.querySelectorAll('[data-view]');
     const panels = document.querySelectorAll('.panel');
     navButtons.forEach((button) => {
